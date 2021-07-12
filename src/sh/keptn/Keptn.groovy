@@ -1097,6 +1097,52 @@ def sendConfigurationTriggeredEvent(Map args) {
     
     return keptnContext
 }
+def addPrometheusSecret(Map args){
+        def keptnInit = keptnLoadFromInit(args)
+        steps.echo "Loading Prometheus secret"
 
+        def keptnObj = keptnInit.keptnObj
+        def prometheusUrl = keptnInit.prometheusUrl
+        def keptnProject = keptnInit.keptnProject
+        def keptnEndpoint = keptnInit.keptnEndpoint
+        def keptnApiToken = keptnInit.keptnApiToken
+
+        def secretData = [user: "", password: "", url: "${prometheusUrl}", name: "prometheus-credentials-${keptnProject}", scope: "keptn-default"]
+        def requestBody = """{
+            "data": {
+                "user": "${secretData.user}",
+                "password": "${secretData.password}",
+                "url": "${secretData.url}"
+            },
+            "name": "${secretData.name}",
+            "scope": "${secretData.scope}"
+        }"""
+        //Delete preexisting secret
+        def deleteSecretResponse = httpRequest contentType: 'APPLICATION_JSON', 
+            customHeaders: [[maskValue: true, name: 'x-token', value: "${keptnApiToken}"]], 
+            httpMode: 'DELETE', 
+            responseHandle: 'STRING', 
+            url: "${keptnEndpoint}/api/secrets/v1/secret?name=${secretData.name}&scope=${secretData.scope}", 
+            validResponseCodes: "100:404",
+            ignoreSslErrors: true
+        echo "Response from delete secret ${secretData.name}: " + deleteSecretResponse
+
+        //Add new secret
+        def addSecretResponse = httpRequest contentType: 'APPLICATION_JSON', 
+            customHeaders: [[maskValue: true, name: 'x-token', value: "${keptnApiToken}"]], 
+            httpMode: 'POST', 
+            requestBody: requestBody, 
+            responseHandle: 'STRING', 
+            url: "${keptnEndpoint}/api/secrets/v1/secret", 
+            validResponseCodes: "100:404",
+            ignoreSslErrors: true
+        
+        if(addSecretResponse.status != 201){
+            steps.echo "Error uploading Prometheus Secret"
+            echo "Response from add secret ${secretData.name}: " + addSecretResponse.content
+        } else {
+            steps.echo "Loaded Prometheus secret"
+        }
+    }
 
 return this
